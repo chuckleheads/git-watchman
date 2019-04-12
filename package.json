@@ -14,26 +14,31 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "nodemon --exec \"npm start\"",
+    "dev": "nodemon",
     "start": "probot run ./lib/index.js",
     "lint": "standard **/*.ts --fix",
     "test": "jest && standard **/*.ts",
     "test:watch": "jest --watch --notify --notifyMode=change --coverage"
   },
   "dependencies": {
-    "nock": "^10.0.0",
     "@types/nock": "^9.3.0",
-    "probot": "^7.2.0"
+    "nock": "^10.0.0",
+    "nodegit": "^0.24.1",
+    "probot": "^7.2.0",
+    "tmp": "^0.1.0"
   },
   "devDependencies": {
     "@types/jest": "^24.0.0",
     "@types/node": "^11.9.0",
+    "@types/nodegit": "^0.24.6",
+    "@types/tmp": "^0.1.0",
     "eslint-plugin-typescript": "^0.14.0",
     "jest": "^24.0.0",
     "nodemon": "^1.17.2",
     "smee-client": "^1.0.2",
     "standard": "^12.0.1",
     "ts-jest": "^24.0.0",
+    "ts-node": "^8.0.3",
     "typescript": "^3.3.1",
     "typescript-eslint-parser": "^22.0.0"
   },
@@ -51,5 +56,15 @@
   },
   "jest": {
     "testEnvironment": "node"
+  },
+  "nodemonConfig": {
+    "watch": [
+      "src"
+    ],
+    "ext": "ts",
+    "ignore": [
+      "src/**/*.spec.ts"
+    ],
+    "exec": "npm run build && npm run start"
   }
 }
