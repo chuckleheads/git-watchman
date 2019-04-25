@@ -16,6 +16,7 @@ export = (app: Application) => {
     if ('comment' in context.payload && 'issue' in context.payload) {
       if (context.payload.comment.body.match(/@git-watchman approve/gi)) {
         const failedTriggerPrComment = context.issue({ body: ':sob: I failed to trigger a build for this PR.' });
+        const failedMergePrComment = context.issue({ body: ':sob: Looks like the tests failed for master.\n ![](https://media1.giphy.com/media/l49JWMZfuyqbikTDi/200w.gif)' });
         try {
           const res = await startBuild(context.repo().repo, context.repo().owner, context.payload.issue.number, context.payload.issue.title);
           const body = JSON.parse(await res.readBody());
@@ -24,6 +25,13 @@ export = (app: Application) => {
           });
           await context.github.issues.createComment(prComment);
           const status = await pollForMasterStatus(body.url, context)
+          console.log(status)
+          if (status === "passed") {
+            console.log("passed :yey:");
+            mergePR(context)
+          } else {
+            await context.github.issues.createComment(failedMergePrComment);
+          }
         } catch (err) {
           await context.github.issues.createComment(failedTriggerPrComment);
           console.error(err)
@@ -46,47 +54,35 @@ async function startBuild(repo: string, owner: string, issue: string, branch: st
 }
 
 async function pollForMasterStatus(url: string, context: any): Promise<string> {
-  const failedMergePrComment = context.issue({ body: ':sob: Looks like the tests failed for master.\n ![](https://media1.giphy.com/media/l49JWMZfuyqbikTDi/200w.gif)' });
-  return interval(async (iteration, stop): string => {
-    try {
-      const res = await httpc.get(url, { Authorization: `Bearer ${process.env.BUILDKITE_TOKEN}` })
-      const statusBody = JSON.parse(await res.readBody())
-      if (statusBody.state != "passed" && statusBody != "failed") {
-        console.log("waiting on build to complete");
-      } else {
-        return statusBody.state
+  return new Promise((resolve, reject) => {
+    interval(async (iteration, stop) => {
+      try {
+        const res = await httpc.get(url, { Authorization: `Bearer ${process.env.BUILDKITE_TOKEN}` })
+        const statusBody = JSON.parse(await res.readBody())
+        if (statusBody.state !== "passed" && statusBody !== "failed") {
+          console.log("waiting on build to complete");
+        } else {
+          resolve(statusBody.state);
+          stop();
+        }
+      } catch (err) {
+        resolve("failed")
+        stop();
       }
-      // switch (statusBody.state) {
-      //   case "failed":
-      //     await context.github.issues.createComment(failedMergePrComment);
-      //     stop();
-      //     return "failed";
-      //   case "passed":
-      //     console.log("passed :yey:");
-      //     if (context.payload.comment.body.includes("dry run")) {
-      //       console.log("This is where I'd merge your PR")
-      //     } else {
-      //       mergePR(context)
-      //     }
-      //     stop();
-      //     return "passed";
-      //   default:
-      //     console.log("waiting on build to complete");
-      //     break;
-      // }
-    } catch (err) {
-      stop();
-      return "failed"
-      // await context.github.issues.createComment(failedMergePrComment);
-    }
-  }, 5000);
+    }, 5000);
+  })
+
 }
 
 async function mergePR(context: any) {
-  context.github.pullRequests.merge(context.repo({
-    number: context.payload.issue.number,
-    commit_title: context.payload.issue.title,
-    commit_message: context.payload.issue.html_url,
-    merge_method: "squash",
-  }))
+  if (context.payload.comment.body.includes("dry run")) {
+    console.log("This is where I'd merge your PR")
+  } else {
+    context.github.pullRequests.merge(context.repo({
+      number: context.payload.issue.number,
+      commit_title: context.payload.issue.title,
+      commit_message: context.payload.issue.html_url,
+      merge_method: "squash",
+    }))
+  }
 }
