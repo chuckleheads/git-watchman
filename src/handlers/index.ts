@@ -10,7 +10,7 @@ export async function handleIssueChange(app: Application, context: Context) {
     if ('comment' in context.payload && 'issue' in context.payload) {
         if (context.payload.comment.body.match(/@git-watchman approve/gi)) {
             handleMergeRequest(context)
-        } else if (context.payload.comment.body.match(/@git-watchman approve/gi)) {
+        } else if (context.payload.comment.body.match(/@git-watchman close/gi)) {
             handleCloseRequest(context)
         }
     }
